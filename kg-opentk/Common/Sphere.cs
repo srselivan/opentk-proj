@@ -11,9 +11,12 @@ namespace kg_opentk.Common
         private List<float> Vertices = new List<float>();
         private List<float> Normals = new List<float>();
         private List<float> TexCoords = new List<float>();
+        private List<uint> Indices = new List<uint>();
 
         private float X, Y, Z, R;
-        private int SectorCount = 2048, StackCount = 1024;
+        //private int SectorCount = 2048, StackCount = 1024;
+        private int SectorCount = 512, StackCount = 256;
+        //private int SectorCount = 72, StackCount = 36;
 
         public Sphere(float R, float X, float Y, float Z)
         {
@@ -22,6 +25,7 @@ namespace kg_opentk.Common
             this.Y = Y;
             this.Z = Z;
             CalculateVertecies();
+            CalculateIndices();
         }
 
         public float[] GetVertecies()
@@ -29,9 +33,19 @@ namespace kg_opentk.Common
             return Vertices.ToArray();
         }
 
+        public float[] GetTex()
+        {
+            return TexCoords.ToArray();
+        }
+
         public float[] GetNormals()
         {
             return Normals.ToArray();
+        }
+
+        public uint[] GetIndices()
+        {
+            return Indices.ToArray();
         }
 
         public float[] GetSphere(bool isNormals = true, bool isTexCoords = true)
@@ -103,6 +117,38 @@ namespace kg_opentk.Common
                     t = (float)i / StackCount;
                     TexCoords.Add(s);
                     TexCoords.Add(t);
+
+                }
+            }
+        }
+
+        private void CalculateIndices()
+        {
+            uint k1, k2;
+
+            for (int i = 0; i < StackCount; ++i)
+            {
+                k1 = (uint)(i * (SectorCount + 1));     // beginning of current stack
+                k2 = (uint)(k1 + SectorCount + 1);      // beginning of next stack
+
+                for (int j = 0; j < SectorCount; ++j, ++k1, ++k2)
+                {
+                    // 2 triangles per sector excluding first and last stacks
+                    // k1 => k2 => k1+1
+                    if (i != 0)
+                    {
+                        Indices.Add(k1);
+                        Indices.Add(k2);
+                        Indices.Add(k1 + 1);
+                    }
+
+                    // k1+1 => k2 => k2+1
+                    if (i != (StackCount - 1))
+                    {
+                        Indices.Add(k1 + 1);
+                        Indices.Add(k2);
+                        Indices.Add(k2 + 1);
+                    }
 
                 }
             }

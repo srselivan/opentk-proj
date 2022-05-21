@@ -10,21 +10,23 @@ namespace kg_opentk
 
     public class Window : GameWindow
     {
-        Sphere Sun = new Sphere(1.0f, 0.0f, 0.0f, 0.0f);
+        Sphere _earth;
+        //Sphere _sun;
 
-        private readonly Vector3 _lightPos = new Vector3(1.0f, 0.0f, 1.0f);
+        private readonly Vector3 _lightPos = new Vector3(0.0f, 0.0f, 0.0f);
 
         private int _vertexBufferObject;
-        private int _vaoModel;
-        private int _vaoLamp;
+        private int _vertexArrayObject;
+        private int _elementBufferObject;
 
-        private Shader _lampShader;
-        private Shader _lightingShader;
+        private Shader _shader;
 
         private Texture _diffuseMap;
         private Texture _specularMap;
 
         private Camera _camera;
+
+        private double _time = 0;
 
         public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
             : base(gameWindowSettings, nativeWindowSettings)
@@ -37,107 +39,95 @@ namespace kg_opentk
 
             VSync = VSyncMode.On;
 
+            _earth = new Sphere(0.5f, 2.0f, 0.0f, 0.0f);
+            //_sun = new Sphere(1.0f, 0.0f, 0.0f, 0.0f);
+
             GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             GL.Enable(EnableCap.DepthTest);
 
             _vertexBufferObject = GL.GenBuffer();
+            _vertexArrayObject = GL.GenVertexArray();
+            _elementBufferObject = GL.GenBuffer();
+            GL.BindVertexArray(_vertexArrayObject);
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, Sun.GetVertecies().Length * sizeof(float), Sun.GetVertecies(), BufferUsageHint.StaticDraw);
 
-            _lightingShader = new Shader(
+            _shader = new Shader(
                 "C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Shaders/shader.vert",
                 "C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Shaders/lighting.frag");
+            SetShader();
 
-            _lampShader = new Shader(
-                "C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Shaders/shader.vert",
-                "C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Shaders/shader.frag");
+            var positionLocation = _shader.GetAttribLocation("aPos");
+            GL.EnableVertexAttribArray(positionLocation);
+            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
 
-            {
-                _vaoModel = GL.GenVertexArray();
-                GL.BindVertexArray(_vaoModel);
+            var normalLocation = _shader.GetAttribLocation("aNormal");
+            GL.EnableVertexAttribArray(normalLocation);
+            GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
 
-                // All of the vertex attributes have been updated to now have a stride of 8 float sizes.
-                var positionLocation = _lightingShader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(positionLocation);
-                GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
+            var texCoordLocation = _shader.GetAttribLocation("aTexCoords");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
 
-                var normalLocation = _lightingShader.GetAttribLocation("aNormal");
-                GL.EnableVertexAttribArray(normalLocation);
-                GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
+            var sphereVert = _earth.GetSphere();
+            GL.NamedBufferStorage(
+               _vertexBufferObject,
+               sphereVert.Length * sizeof(float),        // the size needed by this buffer
+               sphereVert,                           // data to initialize with
+               BufferStorageFlags.MapWriteBit);    // at this point we will only write to the buffer
 
-                // The texture coords have now been added too, remember we only have 2 coordinates as the texture is 2d,
-                // so the size parameter should only be 2 for the texture coordinates.
-                var texCoordLocation = _lightingShader.GetAttribLocation("aTexCoords");
-                GL.EnableVertexAttribArray(texCoordLocation);
-                GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
-            }
+            GL.EnableVertexArrayAttrib(_vertexArrayObject, 0);
 
-            {
-                _vaoLamp = GL.GenVertexArray();
-                GL.BindVertexArray(_vaoLamp);
+            GL.VertexArrayVertexBuffer(_vertexArrayObject, 0, _vertexArrayObject, IntPtr.Zero, 8 * sizeof(float));
 
-                // The lamp shader should have its stride updated aswell, however we dont actually
-                // use the texture coords for the lamp, so we dont need to add any extra attributes.
-                var positionLocation = _lampShader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(positionLocation);
-                GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-            }
+            var indices = _earth.GetIndices();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.DynamicDraw);
 
-
-            // Our two textures are loaded in from memory, you should head over and
-            // check them out and compare them to the results.
             _diffuseMap = Texture.LoadFromFile("C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Resources/earth.jpg");
             _specularMap = Texture.LoadFromFile("C:/Users/Sergey/source/repos/opentk-proj/kg-opentk/Resources/earth_specular.jpg");
 
             _camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
+
+        }
+
+        private void SetShader()
+        {
+            _shader.SetInt("material.diffuse", 0);
+            _shader.SetInt("material.specular", 1);
+            _shader.SetVector3("material.specular", new Vector3(0.5f, 0.5f, 0.5f));
+            _shader.SetFloat("material.shininess", 100000.0f);
+            _shader.SetVector3("light.position", _lightPos);
+            _shader.SetFloat("light.constant", 0.1f);
+            _shader.SetFloat("light.linear", 0.09f);
+            _shader.SetFloat("light.quadratic", 0.032f);
+            _shader.SetVector3("light.ambient", new Vector3(0.2f));
+            _shader.SetVector3("light.diffuse", new Vector3(0.5f));
+            _shader.SetVector3("light.specular", new Vector3(1.0f));
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
             base.OnRenderFrame(e);
+            _time += e.Time;
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            GL.BindVertexArray(_vertexArrayObject);
 
-            GL.BindVertexArray(_vaoModel);
-
-            // The two textures need to be used, in this case we use the diffuse map as our 0th texture
-            // and the specular map as our 1st texture.
             _diffuseMap.Use(TextureUnit.Texture0);
             _specularMap.Use(TextureUnit.Texture1);
-            _lightingShader.Use();
 
-            _lightingShader.SetMatrix4("model", Matrix4.Identity);
-            _lightingShader.SetMatrix4("view", _camera.GetViewMatrix());
-            _lightingShader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+            _shader.SetMatrix4("model", 
+                Matrix4.Identity 
+                * Matrix4.CreateRotationZ((float)_time)
+                * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(90.0f))
+                );
+            _shader.SetMatrix4("view", _camera.GetViewMatrix());
+            _shader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+            _shader.SetVector3("viewPos", _camera.Position);
+            _shader.Use();
 
-            _lightingShader.SetVector3("viewPos", _camera.Position);
+            GL.DrawElements(PrimitiveType.Triangles, _earth.GetIndices().Length, DrawElementsType.UnsignedInt, 0);
 
-            // Here we specify to the shaders what textures they should refer to when we want to get the positions.
-            _lightingShader.SetInt("material.diffuse", 0);
-            _lightingShader.SetInt("material.specular", 1);
-            _lightingShader.SetVector3("material.specular", new Vector3(0.5f, 0.5f, 0.5f));
-            _lightingShader.SetFloat("material.shininess", 32.0f);
-
-            _lightingShader.SetVector3("light.position", _lightPos);
-            _lightingShader.SetVector3("light.ambient", new Vector3(0.2f));
-            _lightingShader.SetVector3("light.diffuse", new Vector3(0.5f));
-            _lightingShader.SetVector3("light.specular", new Vector3(1.0f));
-
-            GL.DrawArrays(PrimitiveType.Triangles, 0, Sun.GetVertecies().Length / 3);
-
-            GL.BindVertexArray(_vaoModel);
-
-            _lampShader.Use();
-
-            Matrix4 lampMatrix = Matrix4.Identity;
-            lampMatrix *= Matrix4.CreateScale(1.3f);
-            lampMatrix *= Matrix4.CreateTranslation(_lightPos);
-
-            _lampShader.SetMatrix4("model", lampMatrix);
-            _lampShader.SetMatrix4("view", _camera.GetViewMatrix());
-            _lampShader.SetMatrix4("projection", _camera.GetProjectionMatrix());
-
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
 
             SwapBuffers();
         }
@@ -170,8 +160,7 @@ namespace kg_opentk
 
             // Delete all the resources.
             GL.DeleteBuffer(_vertexBufferObject);
-            GL.DeleteVertexArray(_vaoModel);
-            GL.DeleteVertexArray(_vaoLamp);
+            GL.DeleteVertexArray(_vertexArrayObject);
 
             GL.DeleteProgram(_diffuseMap.Handle);
             GL.DeleteProgram(_specularMap.Handle);

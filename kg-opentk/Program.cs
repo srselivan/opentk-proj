@@ -11,7 +11,7 @@ namespace kg_opentk
             var nativeWindowSettings = new NativeWindowSettings()
             {
                 Size = new Vector2i(800, 800),
-                Title = "Earth & Sun",
+                Title = "Earth & Earth",
             };
 
             using (var window = new Window(GameWindowSettings.Default, nativeWindowSettings))
