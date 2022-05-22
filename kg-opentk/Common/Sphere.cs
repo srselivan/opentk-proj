@@ -13,17 +13,13 @@ namespace kg_opentk.Common
         private List<float> TexCoords = new List<float>();
         private List<uint> Indices = new List<uint>();
 
-        private float X, Y, Z, R;
+        private float R = 1.0f;
         //private int SectorCount = 2048, StackCount = 1024;
-        private int SectorCount = 512, StackCount = 256;
-        //private int SectorCount = 72, StackCount = 36;
+        //private int SectorCount = 512, StackCount = 256;
+        private int SectorCount = 72, StackCount = 36;
 
-        public Sphere(float R, float X, float Y, float Z)
+        public Sphere()
         {
-            this.R = R;
-            this.X = X;
-            this.Y = Y;
-            this.Z = Z;
             CalculateVertecies();
             CalculateIndices();
         }
@@ -100,9 +96,9 @@ namespace kg_opentk.Common
                     // vertex position (x, y, z)
                     x = xy * (float)Math.Cos(sectorAngle);             // r * cos(u) * cos(v)
                     y = xy * (float)Math.Sin(sectorAngle);             // r * cos(u) * sin(v)
-                    Vertices.Add(x + X);
-                    Vertices.Add(y + Y);
-                    Vertices.Add(z + Z);
+                    Vertices.Add(x);
+                    Vertices.Add(y);
+                    Vertices.Add(z);
 
                     // normalized vertex normal (nx, ny, nz)
                     nx = x * lengthInv;
